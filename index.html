@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-512.png">
+<meta name="theme-color" content="#0d1a21">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Volley 5-1 : apprends ta position</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f3f6f8;--ink:#0f2a36;--mut:#5a7482;--card:#fff;--line:#d3dee4;--acc:#e8641e;--court:#2b86a3;--free:#1d5f75;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d1a21;--ink:#e6f0f4;--mut:#8fa9b6;--card:#15262f;--line:#26404c;--court:#236f88;--free:#164556}}
+:root[data-theme="dark"]{--bg:#0d1a21;--ink:#e6f0f4;--mut:#8fa9b6;--card:#15262f;--line:#26404c;--court:#236f88;--free:#164556}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Barlow,system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.45}
+main{max-width:920px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:clamp(1.7rem,5vw,2.4rem);line-height:1.1;margin:0 0 6px;font-weight:700}
+.sub{color:var(--mut);margin:0 0 18px;max-width:60ch}
+.ctl{display:grid;gap:14px;margin-bottom:16px}
+.grp b{display:block;font-size:.9rem;color:var(--mut);margin-bottom:6px;font-weight:600}
+.row{display:flex;flex-wrap:wrap;gap:8px}
+button{font:inherit;cursor:pointer;border:1.5px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:8px 14px;font-weight:600}
+button:hover{border-color:var(--acc)}
+button:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.dot{display:inline-block;width:.7em;height:.7em;border-radius:50%;margin-right:7px}
+.stage{display:grid;gap:16px;grid-template-columns:minmax(0,1fr)}
+@media(min-width:760px){.stage{grid-template-columns:minmax(0,420px) minmax(0,1fr);align-items:start}}
+svg{width:100%;height:auto;display:block;border-radius:10px;touch-action:manipulation}
+.pl{transition:transform .55s cubic-bezier(.3,.7,.2,1),opacity .2s}
+@media(prefers-reduced-motion:reduce){.pl{transition:none}}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px}
+.panel h2{margin:0 0 4px;font-size:1.25rem}
+.panel p{margin:6px 0}
+.rots{display:flex;gap:6px;margin:12px 0}
+.rots button{flex:1;padding:8px 0;border-radius:8px;text-align:center;line-height:1.1}
+.rots small{display:block;font-weight:400;font-size:.72rem;opacity:.75}
+.nav{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center}
+.fb{font-weight:600;min-height:1.5em;margin-top:8px}.ok{color:#1f9d55}.ko{color:#d64545}
+</style>
+</head>
+<body>
+<main>
+<h1>Le 5-1 au volley : où dois-tu être ?</h1>
+<p class="sub">Choisis ton poste et la phase de jeu, puis fais défiler les 6 rotations pour voir où te placer.</p>
+
+<div class="ctl">
+  <div class="grp"><b>Ton poste</b><div class="row" id="roles" role="group" aria-label="Poste"></div></div>
+  <div class="grp"><b>Phase de jeu</b>
+    <div class="row" id="modes" role="group" aria-label="Phase">
+      <button data-m="service" aria-pressed="false">Service</button>
+      <button data-m="defense" aria-pressed="false">Défense</button>
+      <button data-m="reception" aria-pressed="true">Réception</button>
+      <button data-m="origine" aria-pressed="false">Placement à l'origine</button>
+    </div>
+  </div>
+</div>
+
+<div class="stage">
+  <svg id="court" viewBox="0 0 360 400" role="img" aria-label="Terrain de volley"></svg>
+  <div class="panel">
+    <h2 id="title"></h2>
+    <p id="desc"></p>
+    <p id="detail" style="font-weight:600"></p>
+    <div class="rots" id="rots" role="group" aria-label="Rotation"></div>
+    <div class="nav">
+      <button id="prev">Rotation précédente</button>
+      <button id="next">Rotation suivante</button>
+    </div>
+    <div class="nav"><button id="quiz" aria-pressed="false">Mode test</button></div>
+    <div class="fb" id="fb" aria-live="polite"></div>
+  </div>
+</div>
+</main>
+
+<script>
+var R={
+  P:{n:'Passeur',s:'P',c:'#e8871e'},
+  C1:{n:'Central 1',s:'C1',c:'#2f7fd1'},
+  C2:{n:'Central 2',s:'C2',c:'#5b5fd6'},
+  R1:{n:'Réceptionneur-attaquant 2',s:'R2',c:'#8aa62a'},
+  R2:{n:'Réceptionneur-attaquant 1',s:'R1',c:'#2e9e5b'},
+  Po:{n:'Pointu',s:'Po',c:'#d6455d'}
+};
+var ORDER=['P','C1','R2','Po','C2','R1'],Z=[1,6,5,4,3,2];
+var SRV=[7.9,9.8];
+
+var SPOT={
+  SN:{p:[6.8,.9]},
+  Z1:{p:[7.5,6.5]},
+  Z5:{p:[1.5,6.5]},
+  Z6:{p:[4.5,7.6]},
+  A2:{p:[7.5,2.2]},
+  A3:{p:[4.5,1.8]},
+  A4:{p:[1.5,2.2]},
+  OUT:{p:[6,8.7]},
+  
+  // P1
+  P1_P:     {p:[8.63,7.42]},
+  P1_C1:    {p:[4.52,6.87]},
+  P1_R2:    {p:[1.63,6.97]},
+  P1_PO:    {p:[0.74,3.09]},
+  P1_C2:    {p:[5.48,2.74]},
+  P1_R1:    {p:[7.63,6.21]},
+
+  // P6
+  P6_P:     {p:[5.78,1.46]},
+  P6_C1:    {p:[4.64,7.53]},
+  P6_R2:    {p:[1.29,6.22]},
+  P6_PO:    {p:[7,0.63]},
+  P6_C2:    {p:[8.36,2.6]},
+  P6_R1:    {p:[7.46,6.64]},
+
+  // P5
+  P5_P:     {p:[3.58,1.64]},
+  P5_C1:    {p:[0.55,0.67]},
+  P5_R2:    {p:[1.48,6.05]},
+  P5_PO:    {p:[8.15,2.17]},
+  P5_C2:    {p:[7.53,6.3]},
+  P5_R1:    {p:[4.6,7.26]},
+
+  // P4
+  P4_P:     {p:[0.68,0.62]},
+  P4_C1:    {p:[1.92,1.84]},
+  P4_R2:    {p:[2.86,6.05]},
+  P4_PO:    {p:[8.43,7.88]},
+  P4_C2:    {p:[7.15,5.29]},
+  P4_R1:    {p:[5.19,6.03]},
+
+  // P3
+  P3_P:     {p:[6.54,1.03]},
+  P3_C1:    {p:[8.27,2.98]},
+  P3_R2:    {p:[7.63,6.1]},
+  P3_PO:    {p:[6.85,8.05]},
+  P3_C2:    {p:[5.02,7.28]},
+  P3_R1:    {p:[1.31,6.22]},
+
+  // P2
+  P2_P:     {p:[6.72,0.62]},
+  P2_C1:    {p:[7.5,6.21]},
+  P2_R2:    {p:[4.5,6.83]},
+  P2_PO:    {p:[3.02,8.54]},
+  P2_C2:    {p:[0.6,0.86]},
+  P2_R1:    {p:[1.66,6.16]}
+};
+
+var RCV=[
+  {P:'P1_P', C1:'P1_C1', R2:'P1_R2', Po:'P1_PO', C2:'P1_C2', R1:'P1_R1'}, // P1
+  {P:'P6_P', C1:'P6_C1', R2:'P6_R2', Po:'P6_PO', C2:'P6_C2', R1:'P6_R1'}, // P6
+  {P:'P5_P', C1:'P5_C1', R2:'P5_R2', Po:'P5_PO', C2:'P5_C2', R1:'P5_R1'}, // P5
+  {P:'P4_P', C1:'P4_C1', R2:'P4_R2', Po:'P4_PO', C2:'P4_C2', R1:'P4_R1'}, // P4
+  {P:'P3_P', C1:'P3_C1', R2:'P3_R2', Po:'P3_PO', C2:'P3_C2', R1:'P3_R1'}, // P3
+  {P:'P2_P', C1:'P2_C1', R2:'P2_R2', Po:'P2_PO', C2:'P2_C2', R1:'P2_R1'}  // P2
+];
+
+var RECP_LINES = {
+  0: [],
+  1: [[5.31,1.07,7.66,1.07],[5.4,1.19,5.4,7.98],[6.58,1.26,6.58,6.78],[1.07,6.82,4.97,6.82]],
+  2: [[0.52,1.19,3.97,1.19],[4,1.59,4,7.83],[1.65,6.6,5.67,6.6]],
+  3: [[1.17,0.21,1.17,2.14],[2.4,1.64,2.4,6.32],[7.85,4.97,7.85,8.23]],
+  4: [[1.17,5.7,6.08,5.7],[5.45,5.35,5.45,7.67],[7.28,5.25,7.28,8.23]],
+  5: [[1.02,0.21,1.02,6.1],[1.6,5.47,5.33,5.47]]
+};
+
+var st={me:'P',mode:'reception',rot:0,quiz:false,done:false,ok:0,tot:0,tol:1.1};
+var $=function(i){return document.getElementById(i)},NS='http://www.w3.org/2000/svg';
+var svg=$('court'),g={};
+
+function zone(j,i){return Z[(i+j)%6]}
+var DEFP={1:[7.5,6.8],5:[1.5,6.8],6:[4.5,7.4],2:[7.5,1.6],3:[4.5,1.4],4:[1.5,1.6]};
+
+function dz(j,i){
+  var z=zone(j,i),k=ORDER[j][0];
+  if(z>=2&&z<=4){
+    if(Z[i]===1) return z;
+    if(k==='R') return 4;
+    if(k==='C') return 3;
+    if(k==='P'||k==='Po') return 2;
+    return z;
+  }
+  return k==='C'?5:k==='R'?6:1;
+}
+
+function pos(j,i,m){
+  var z=zone(j,i);
+  if(m==='origine') return DEFP[z];
+  if(m==='defense') return DEFP[dz(j,i)];
+  if(m==='service'){
+    if(z===1) return SRV;
+    if(i===0){
+      if(ORDER[j]==='Po') return DEFP[2];
+      if(ORDER[j]==='R1') return DEFP[4];
+    }
+    return DEFP[dz(j,i)];
+  }
+  return SPOT[RCV[i][ORDER[j]]].p;
+}
+
+function px(p){return[18+p[0]*36,18+p[1]*36]}
+
+function drawCourt(){
+  var h='<rect width="360" height="400" fill="var(--free)" rx="10"/>'+
+  '<rect x="18" y="18" width="324" height="324" fill="var(--court)"/>'+
+  '<g stroke="#fff" stroke-width="2" fill="none"><rect x="18" y="18" width="324" height="324"/><line x1="18" y1="126" x2="342" y2="126"/></g>'+
+  '<g stroke="#fff" stroke-opacity=".3" stroke-dasharray="4 5"><line x1="126" y1="18" x2="126" y2="342"/><line x1="234" y1="18" x2="234" y2="342"/><line x1="18" y1="234" x2="342" y2="234"/></g>'+
+  '<rect x="18" y="8" width="324" height="8" fill="#fff" opacity=".9"/><text x="180" y="6" font-size="9" fill="#fff" text-anchor="middle" opacity=".8">FILET</text>';
+  var zc={4:[1.5,1.5],3:[4.5,1.5],2:[7.5,1.5],5:[1.5,7.5],6:[4.5,7.5],1:[7.5,7.5]};
+  for(var z in zc){var p=px(zc[z]);h+='<text x="'+p[0]+'" y="'+(p[1]+14)+'" font-size="46" font-weight="700" fill="#fff" fill-opacity=".14" text-anchor="middle">'+z+'</text>'}
+  h+='<text id="srvlbl" x="270" y="392" font-size="11" fill="#fff" text-anchor="middle" opacity="0">zone de service</text>';
+  svg.innerHTML=h+'<g id="lines"></g><g id="pls"></g><g id="mark"></g>';
+  ORDER.forEach(function(k){
+    var e=document.createElementNS(NS,'g');e.setAttribute('class','pl');
+    var isMe=k===st.me;
+    e.innerHTML='<circle r="18" fill="'+R[k].c+'" stroke="#fff" stroke-width="'+(isMe?4:1.5)+'"/><text y="5" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">'+R[k].s+'</text>';
+    e.dataset.k=k;$('pls').appendChild(e);g[k]=e;
+  });
+}
+
+function drawLines(){
+  var gl=$('lines');gl.innerHTML='';
+  if(st.mode!=='reception'||(st.quiz&&!st.done))return;
+  (RECP_LINES[st.rot]||[]).forEach(function(l){
+    var a=px([l[0],l[1]]),b=px([l[2],l[3]]),e=document.createElementNS(NS,'line');
+    e.setAttribute('x1',a[0]);e.setAttribute('y1',a[1]);e.setAttribute('x2',b[0]);e.setAttribute('y2',b[1]);
+    e.setAttribute('stroke','#ff3b3b');e.setAttribute('stroke-width','3');e.setAttribute('stroke-dasharray','8 6');e.setAttribute('stroke-linecap','round');
+    gl.appendChild(e);
+  });
+}
+
+function place(){
+  ORDER.forEach(function(k,j){
+    var p=px(pos(j,st.rot,st.mode)),e=g[k];
+    e.style.transform='translate('+p[0]+'px,'+p[1]+'px)';
+    var me=k===st.me;
+    e.style.opacity=(st.quiz&&me&&!st.done)?0:(me?1:.6);
+    e.firstChild.setAttribute('stroke-width',me?4:1.5);
+    e.firstChild.setAttribute('stroke',me?'#ffe14d':'#fff');
+  });
+  var isServerSrv = (st.mode==='service' && zone(ORDER.indexOf(st.me),st.rot)===1);
+  $('srvlbl').setAttribute('opacity',isServerSrv?.8:0);
+  drawLines();
+}
+
+function myZone(i){return zone(ORDER.indexOf(st.me),i)}
+function shown(i){return (st.mode==='reception'||st.mode==='origine')?myZone(i):dz(ORDER.indexOf(st.me),i)}
+
+var SIDE={2:'à droite',3:'au centre',4:'à gauche'};
+function defText(k,q){
+  if(q>=2&&q<=4)return 'Tu es joueur avant, tu te places pour bloquer et attaquer '+SIDE[q]+'.'+(k==='P'?' Tu passes ensuite le ballon depuis le filet.':'');
+  if(k[0]==='C'||k[0]==='R')return 'Tu es joueur arrière, tu vas toujours défendre en zone '+q+'.';
+  return 'Tu es joueur arrière, tu défends en zone '+q+'.'+(k==='P'?' Tu montes ensuite au filet pour passer.':' Tu viens ensuite attaquer aux 3 mètres.');
+}
+var RULE={
+1:"Tu es joueur arrière : tu dois être derrière le 2 (plus loin du filet) et à droite du 6.",
+2:"Tu es joueur avant : tu dois être devant le 1 (plus proche du filet) et à droite du 3.",
+3:"Tu es joueur avant : tu dois être devant le 6 (plus proche du filet) et entre le 4 et le 2.",
+4:"Tu es joueur avant : tu dois être devant le 5 (plus proche du filet) et à gauche du 3.",
+5:"Tu es joueur arrière : tu dois être derrière le 4 (plus loin du filet) et à gauche du 6.",
+6:"Tu es joueur arrière : tu dois être derrière le 3 (plus loin du filet) et entre le 5 et le 1."};
+function update(){
+  var r=R[st.me];
+  $('title').textContent=r.n+' · P'+Z[st.rot];
+  $('desc').textContent='Phase : '+(st.mode==='service'?'Service':st.mode==='defense'?'Défense':st.mode==='reception'?'Réception':'Placement à l\'origine')+' (Rotation P'+Z[st.rot]+')';
+  if(st.quiz&&!st.done)$('desc').textContent='Phase : '+(st.mode==='service'?'Service':st.mode==='defense'?'Défense':st.mode==='reception'?'Réception':'Placement à l\'origine')+'. Touche l\'endroit où tu dois te placer.';
+  var dt='';
+  if(!(st.quiz&&!st.done)){
+    if(st.mode==='defense'){
+      if(st.rot===0 && st.me==='Po'){
+        dt='Tu es joueur avant, tu te places pour bloquer et attaquer à gauche si la balle a été engagée par un service de l\'équipe adverse et à droite si c\'est ton équipe qui servait.';
+      } else if(st.rot===0 && st.me==='R1'){
+        dt='Tu es joueur avant, tu te places pour bloquer et attaquer à droite si la balle a été engagée par un service de l\'équipe adverse et à gauche si c\'est ton équipe qui servait.';
+      } else {
+        dt=defText(st.me,dz(ORDER.indexOf(st.me),st.rot));
+      }
+    }
+    else if(st.mode==='origine'||st.mode==='reception')dt=RULE[myZone(st.rot)];
+    else if(st.mode==='service')dt='Chaque joueur se place sur la zone correspondant à son poste en respectant ligne arrière et ligne avant.';
+  }
+  $('detail').textContent=dt;
+  var rs=$('rots');rs.innerHTML='';
+  for(var i=0;i<6;i++){(function(i){
+    var b=document.createElement('button');
+    b.setAttribute('aria-pressed',i===st.rot);
+    b.innerHTML='P'+Z[i]+'<small>'+((st.quiz&&!st.done)?'&nbsp;':'zone '+shown(i))+'</small>';
+    b.onclick=function(){go(i)};rs.appendChild(b);
+  })(i)}
+  place();
+}
+function reset(){st.done=false;$('mark').innerHTML='';$('fb').textContent='';$('fb').className='fb'}
+function go(i){st.rot=(i+6)%6;reset();update()}
+
+function buildRoles(){
+  var c=$('roles');c.innerHTML='';
+  ORDER.forEach(function(k){
+    var b=document.createElement('button');
+    b.setAttribute('aria-pressed',k===st.me);
+    b.innerHTML='<span class="dot" style="background:'+R[k].c+'"></span>'+R[k].n;
+    b.onclick=function(){st.me=k;reset();buildRoles();drawCourt();update()};
+    c.appendChild(b);
+  });
+}
+document.querySelectorAll('#modes button').forEach(function(b){
+  b.onclick=function(){
+    st.mode=b.dataset.m;reset();
+    document.querySelectorAll('#modes button').forEach(function(x){x.setAttribute('aria-pressed',x===b)});
+    update();
+  };
+});
+$('prev').onclick=function(){go(st.rot-1)};
+$('next').onclick=function(){go(st.rot+1)};
+
+$('quiz').onclick=function(){
+  st.quiz=!st.quiz;reset();
+  $('quiz').setAttribute('aria-pressed',st.quiz);
+  $('quiz').textContent=st.quiz?'Quitter le test':'Mode test';
+  if(st.quiz)$('fb').textContent='Score : '+st.ok+' / '+st.tot;
+  update();
+};
+svg.addEventListener('click',function(e){
+  if(!st.quiz||st.done)return;
+  var b=svg.getBoundingClientRect(),k=360/b.width;
+  var x=((e.clientX-b.left)*k-18)/36,y=((e.clientY-b.top)*k-18)/36;
+  var t=pos(ORDER.indexOf(st.me),st.rot,st.mode);
+  var good=Math.hypot(x-t[0],y-t[1])<=st.tol;
+  st.tot++;if(good)st.ok++;st.done=true;
+  var c=px(t),m=px([x,y]);
+  $('mark').innerHTML='<circle cx="'+c[0]+'" cy="'+c[1]+'" r="'+(st.tol*36)+'" fill="'+(good?'#3ddc84':'#ff5d5d')+'" fill-opacity=".18" stroke="'+(good?'#3ddc84':'#ff5d5d')+'" stroke-width="2" stroke-dasharray="5 4"/>'+
+    '<circle cx="'+m[0]+'" cy="'+m[1]+'" r="6" fill="'+(good?'#3ddc84':'#ff5d5d')+'" stroke="#fff" stroke-width="2"/>';
+  $('fb').className='fb '+(good?'ok':'ko');
+  $('fb').textContent=(good?'Bien placé ! ':'Raté, regarde ta vraie place. ')+'Score : '+st.ok+' / '+st.tot;
+  update();
+});
+buildRoles();drawCourt();update();
+</script>
+</body>
+</html>
