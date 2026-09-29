@@ -41,6 +41,13 @@ svg{width:100%;height:auto;display:block;border-radius:10px;touch-action:manipul
 .fb{font-weight:600;min-height:1.5em;margin-top:8px}.ok{color:#1f9d55}.ko{color:#d64545}
 </style>
 </head>
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js')
+      .then(function() { console.log("Service Worker enregistré !"); })
+      .catch(function(err) { console.log("Erreur SW: ", err); });
+  }
+</script>
 <body>
 <main>
 <h1>Le 5-1 au volley : où dois-tu être ?</h1>
